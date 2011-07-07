@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
@@ -50,16 +52,42 @@ public class GCTPStarter {
 			List<GCData> caches = loadCaches(args[2]);
 			buildKMLFromList(caches);
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		System.out.println("Done");
 	}
 
 	private void buildKMLFromList(List<GCData> caches) {
+		StringBuilder out = new StringBuilder();
+		out.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+		out.append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">");
+		out.append("<Document>");
 		for (GCData gcData : caches) {
-			System.out.println(gcData.getCoord() + "\t" +gcData.getName() );
+			
+			final Pattern patternLatlon = Pattern.compile("([NS])[^\\d]*(\\d+)[^°]*° (\\d+)\\.(\\d+) ([WE])[^\\d]*(\\d+)[^°]*° (\\d+)\\.(\\d+)", Pattern.CASE_INSENSITIVE);
+			final Matcher matcherLatlon = patternLatlon.matcher(gcData.getCoord());
+			matcherLatlon.find();
+			int latNegative = -1;
+			int lonNegative = -1;
+			if (matcherLatlon.group(1).equalsIgnoreCase("N")) {
+				latNegative = 1;
+			}
+			if (matcherLatlon.group(5).equalsIgnoreCase("E")) {
+				lonNegative = 1;
+			}
+			Double lat = new Double(latNegative * (new Float(matcherLatlon.group(2)) + new Float(matcherLatlon.group(3) + "." + matcherLatlon.group(4)) / 60));
+			Double lon =new Double(lonNegative * (new Float(matcherLatlon.group(6)) + new Float(matcherLatlon.group(7) + "." + matcherLatlon.group(8)) / 60));
+			
+			out.append("<Placemark>");
+			out.append("<name>" + gcData.getGcCode() +" " + gcData.getName() + "</name>");
+			out.append("<description>" + gcData.getCoord() + "</description>");
+			out.append("<Point><coordinates>"+lon+","+lat+"</coordinates></Point>");
+			out.append("</Placemark>");
 		}
+		out.append("</Document>");
+		out.append("</kml>");
+		
+		System.out.println(out.toString());
 	}
 
 	private void checkLogin() {
